@@ -1,8 +1,8 @@
 from app import db
 
 
-class Data(db.Model):
-    __tablename__ = 'data'
+class MyData(db.Model):
+    __tablename__ = 'mydata'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(8))
     data = db.Column(db.Text)
