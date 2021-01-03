@@ -1,9 +1,15 @@
-import json
-from flask import Blueprint
+import json, time, datetime
+import jwt
+from flask import Blueprint, g
 from flask import request,g,current_app,jsonify
 from models import MyData
 from app import db
+from app.models import User, MyData
+from app.auth import basic_auth, token_auth
+from app.error import error_response, bad_request
+from app.utils import action_lib_presets
 
+EXPIRES_IN = 28800
 bp = Blueprint('api', __name__)
 
 
@@ -16,20 +22,102 @@ def hello_world():
 def test():
     return 'test'
 
+# get user
+@bp.route('/users/<int:id>', methods=['GET'])
+def get_user(id):
+    user = User.query.get_or_404(id)
+    resp = {
+        username: user.username
+    }
+    return jsonify(resp)
+
+# create user
+@bp.route('/users', methods=['POST'])
+def create_user():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    if not data:
+        return bad_request('bad request')
+    if not username or not password:
+        return bad_request('bad request')
+    user = User.query.filter_by(username=username).first()
+    if user is not None:
+        return bad_request("user existed.")
+
+    user = User()
+    user.username = username
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    return 'create success', 201
+
+# get actions
+@bp.route('/actions', methods=['GET'])
+@token_auth.login_required
+def get_action():
+    date_time = request.args.get('datetime')
+    user = g.current_user
+    if date_time is None:
+        return bad_request('args error.')
+    if not user:
+        return bad_request('Unauth...')
+    
+    date_time_formatted = datetime.datetime.strptime(date_time, r'%Y-%m-%d')
+    mydata = user.mydata.filter_by(timestamp=date_time_formatted).first_or_404()
+    message = {
+        "mydata": json.loads(mydata.data)
+    }
+    return message
+
+# append action cards
+@bp.route('/actions', methods=['POST'])
+@token_auth.login_required
+def append_action():
+    data = request.get_json()
+    mydata_json = data.get('mydata')
+    timestamp = data.get('timestamp')
+
+    mydata_str = json.dumps(mydata_json)
+    user = g.current_user
+    user_id = user.id
+
+    date_time = datetime.datetime.strptime(timestamp, r"%Y-%m-%d")
+
+    mydata = MyData.query.filter_by(
+        user=user,
+        timestamp=date_time
+    ).first()
+    
+    if mydata is None:
+        db.session.add(MyData(user_id=user_id, timestamp=date_time, data=mydata_str))
+        db.session.commit()
+    else:
+        mydata.data = mydata_str
+        db.session.add(mydata)
+        db.session.commit()
+
+    return 'ok', 200
+
+# get library
+@bp.route('/actions-lib', methods=['GET'])
+def get_actions_lib():
+    return jsonify(action_lib_presets)
 
 @bp.route('/update-data', methods=['POST'])
 def update_data():
-    json_data = request.get_json('data')
-    name = json_data.get('name')
-    data = json.dumps(json_data.get('data'))
+    # json_data = request.get_json('data')
+    # name = json_data.get('name')
+    # data = json.dumps(json_data.get('data'))
 
-    mydata = MyData.query.filter_by(username=name).first()
-    if mydata is None:
-        mydata = MyData(username=name, data=data)
-    else:
-        mydata.data = data
-    db.session.add(mydata)
-    db.session.commit()
+    # mydata = MyData.query.filter_by(username=name).first()
+    # if mydata is None:
+    #     mydata = MyData(username=name, data=data)
+    # else:
+    #     mydata.data = data
+    # db.session.add(mydata)
+    # db.session.commit()
     return 'ok', 200
 
 @bp.route('/get-datas', methods=['GET'])
@@ -37,3 +125,48 @@ def get_datas():
     name = request.args.get('name')
     data = MyData.query.filter_by(username=name).first_or_404()
     return jsonify(data.data)
+
+# Auth
+@bp.route('/auth', methods=['POST'])
+@basic_auth.login_required
+def login_auth():
+    user = g.current_user
+    username = ''
+    if user is not None:
+        username = user.username
+    response = {
+        "username": username
+    }
+    return jsonify(response), 200
+
+# Token
+@bp.route('/tokens', methods=['POST'])
+@basic_auth.login_required
+def get_token():
+    user = g.current_user
+    if not user:
+        return bad_request('Unauthorized...')
+    now = datetime.datetime.utcnow()
+    payload = {
+        'user_id': user.id,
+        'username': user.username,
+        'exp': now + datetime.timedelta(seconds=EXPIRES_IN),
+        'iat': now
+    }
+    token = jwt.encode(
+        payload, current_app.config['SECRET_KEY'], algorithm='HS256'
+    ).decode('utf-8')
+
+    return jsonify({
+        'token': token
+    })
+
+# Handle Error
+@bp.app_errorhandler(404)
+def not_found_error(error):
+    return error_response(404)
+
+@bp.app_errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return error_response(500)
