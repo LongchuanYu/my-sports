@@ -8,6 +8,7 @@ from app.models import User, MyData
 from app.auth import basic_auth, token_auth
 from app.error import error_response, bad_request
 from app.utils import action_lib_presets
+from sqlalchemy import extract
 
 EXPIRES_IN = 28800
 bp = Blueprint('api', __name__)
@@ -105,26 +106,22 @@ def append_action():
 def get_actions_lib():
     return jsonify(action_lib_presets)
 
-@bp.route('/update-data', methods=['POST'])
-def update_data():
-    # json_data = request.get_json('data')
-    # name = json_data.get('name')
-    # data = json.dumps(json_data.get('data'))
-
-    # mydata = MyData.query.filter_by(username=name).first()
-    # if mydata is None:
-    #     mydata = MyData(username=name, data=data)
-    # else:
-    #     mydata.data = data
-    # db.session.add(mydata)
-    # db.session.commit()
-    return 'ok', 200
-
-@bp.route('/get-datas', methods=['GET'])
-def get_datas():
-    name = request.args.get('name')
-    data = MyData.query.filter_by(username=name).first_or_404()
-    return jsonify(data.data)
+# get current month include actions
+@bp.route('/days-have-actions', methods=['GET'])
+@token_auth.login_required
+def get_days_have_actions():
+    month = request.args.get('date_month')
+    if not month:
+        return bad_request()
+    response = []
+    data = MyData.query.filter(extract('month', MyData.timestamp) == int(month)).all()
+    for item in data:
+        day = item.timestamp.day
+        content = json.loads(item.data)
+        if day not in response and len(content):
+            response.append(day)
+    # response = list(set([item.timestamp.day for item in data if item.data and len(item.data)]))
+    return jsonify(response)
 
 # Auth
 @bp.route('/auth', methods=['POST'])
