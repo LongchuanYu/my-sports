@@ -114,7 +114,13 @@ def get_days_have_actions():
     if not month:
         return bad_request()
     response = []
-    data = MyData.query.filter(extract('month', MyData.timestamp) == int(month)).all()
+    user = g.current_user
+    if not user:
+        return bad_request()
+    data = MyData.query.filter(
+        MyData.user==user,
+        extract('month', MyData.timestamp) == int(month)
+    ).all()
     for item in data:
         day = item.timestamp.day
         content = json.loads(item.data)

@@ -12,7 +12,7 @@ action_lib_presets = [
         'label': '坐姿划船',
         'category': 'chest',
         'values': [{ 'weight': 0, 'numbers': 0 }],
-    }
+    },
 
     # leg 
     {
