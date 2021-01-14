@@ -20,5 +20,5 @@ jobs:
             git checkout nightly
             git pull
             pip install -r requirements.txt
-            supervisorctl restart MySports
+            sudo supervisorctl restart MySports
 
