@@ -13,4 +13,12 @@ jobs:
           username: ${{ secrets.REMOTE_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            echo "yes!!"
+            cd /home/ubuntu/mysports
+            . venv/bin/activate
+            cd backend
+            git pull
+            git checkout master
+            git pull
+            pip install -r requirements.txt
+            supervisorctl restart MySports
+
