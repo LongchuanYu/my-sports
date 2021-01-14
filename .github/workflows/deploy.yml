@@ -17,7 +17,7 @@ jobs:
             . venv/bin/activate
             cd backend
             git pull
-            git checkout master
+            git checkout nightly
             git pull
             pip install -r requirements.txt
             supervisorctl restart MySports
