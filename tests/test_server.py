@@ -9,5 +9,5 @@ class CreateApp(unittest.TestCase):
         self.app = create_app().test_client()
     
     def test_connect_server(self):
-        resp = self.app.get('/')
-        assert 'test1' in str(resp.data)
+        resp = self.app.get('/test')
+        assert 'test' in str(resp.data)
