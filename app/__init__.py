@@ -17,7 +17,7 @@ def create_app():
     CORS(app)
     db.init_app(app)
 
-    from api import bp
+    from app.api import bp
     app.register_blueprint(bp)
 
     return app

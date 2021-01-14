@@ -13,5 +13,6 @@ jobs:
       - name: Pre run backend
         run: |
           pip install -r requirements.txt
-          python run.py
+          export FLASK_APP=run.py
+          flask test
       

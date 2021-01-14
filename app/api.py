@@ -2,7 +2,7 @@ import json, time, datetime
 import jwt
 from flask import Blueprint, g
 from flask import request,g,current_app,jsonify
-from models import MyData
+from app.models import MyData
 from app import db
 from app.models import User, MyData
 from app.auth import basic_auth, token_auth
