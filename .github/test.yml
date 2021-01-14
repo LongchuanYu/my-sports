@@ -1,8 +1,9 @@
 name: test
 
-push:
-  branches:
-    - nightly
+on:
+  push:
+    branches:
+      - nightly
 
 jobs:
   build-test:
