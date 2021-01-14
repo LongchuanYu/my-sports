@@ -12,6 +12,6 @@ jobs:
       - uses: actions/checkout@v2
       - name: Pre run backend
         run: |
-          pip install requirements.txt
+          pip install -r requirements.txt
           python run.py
       
