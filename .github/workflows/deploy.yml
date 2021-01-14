@@ -1,6 +1,8 @@
 name: backend CD
 
-on: [push]
+push:
+  branches:
+    - master
 
 jobs:
   build-test:

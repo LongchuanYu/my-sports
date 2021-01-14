@@ -1,0 +1,16 @@
+name: test
+
+push:
+  branches:
+    - nightly
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Pre run backend
+        run: |
+          pip install requirements.txt
+          python run.py
+      
