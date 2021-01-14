@@ -12,7 +12,10 @@ jobs:
       - uses: actions/checkout@v2
       - name: Pre run backend
         run: |
-          python run.py
+          pip install -r requirements.txt
+          export FLASK_APP=run.py
+          export PATH=$PATH:~/.local/bin/
+          flask test
       
   deploy:
     runs-on: ubuntu-latest
