@@ -1,3 +1,4 @@
+# coding: utf-8
 import json, time, datetime
 import jwt
 from flask import Blueprint, g
@@ -22,6 +23,11 @@ def hello_world():
 @bp.route('/test', methods=['GET'])
 def test():
     return 'test'
+
+
+"""
+    Users
+"""
 
 # get user
 @bp.route('/users/<int:id>', methods=['GET'])
@@ -54,6 +60,11 @@ def create_user():
 
     return 'create success', 201
 
+
+"""
+    Training
+"""
+
 # get actions
 @bp.route('/actions', methods=['GET'])
 @token_auth.login_required
@@ -64,13 +75,26 @@ def get_action():
         return bad_request('args error.')
     if not user:
         return bad_request('Unauth...')
-    
+
+    action_lib_presets_dic = {}
+    for action in action_lib_presets:
+        name = action['name']
+        label = action['label']
+        action_lib_presets_dic[name] = label
+
     date_time_formatted = datetime.datetime.strptime(date_time, r'%Y-%m-%d')
     mydata = user.mydata.filter_by(timestamp=date_time_formatted).first_or_404()
+    mydata_json = json.loads(mydata.data)
+    for data in mydata_json:
+        name = data.get('name')
+        if name in action_lib_presets_dic:
+            data['label'] = action_lib_presets_dic[name]
+
     message = {
-        "mydata": json.loads(mydata.data)
+        "mydata": mydata_json
     }
     return message
+
 
 # append action cards
 @bp.route('/actions', methods=['POST'])
@@ -106,7 +130,7 @@ def append_action():
 def get_actions_lib():
     return jsonify(action_lib_presets)
 
-# get current month include actions
+# get current month include actions (for calendar)
 @bp.route('/days-have-actions', methods=['GET'])
 @token_auth.login_required
 def get_days_have_actions():
@@ -128,6 +152,22 @@ def get_days_have_actions():
             response.append(day)
     # response = list(set([item.timestamp.day for item in data if item.data and len(item.data)]))
     return jsonify(response)
+
+"""
+    Data
+"""
+# get one year's all datas
+@bp.route('/data', methods=['GET'])
+# @basic_auth.login_required
+def data():
+    year = 2021
+    mydata = MyData.query.filter(
+        extract('year', MyData.timestamp) == int(year)
+    ).all()
+    print(mydata)
+    return 'ok'
+
+
 
 # Auth
 @bp.route('/auth', methods=['POST'])
