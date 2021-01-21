@@ -157,15 +157,55 @@ def get_days_have_actions():
     Data
 """
 # get one year's all datas
-@bp.route('/data', methods=['GET'])
-# @basic_auth.login_required
-def data():
+@bp.route('/data-of-years', methods=['GET'])
+@token_auth.login_required
+def get_data_of_years():
     year = 2021
-    mydata = MyData.query.filter(
+    current_user = g.current_user
+    if not current_user:
+        return error_response(401)
+
+    mydatas = MyData.query.filter(
+        MyData.user == current_user,
         extract('year', MyData.timestamp) == int(year)
     ).all()
-    print(mydata)
-    return 'ok'
+
+    datetime_dic = {}
+    for mydata in mydatas:
+        data_json = json.loads(mydata.data)
+        timestamp = mydata.timestamp
+        month_day_str = datetime.datetime.strftime(timestamp, r'%m-%d')
+        capacity = 0
+
+        if not len(data_json):
+            continue    
+
+        for action in data_json:
+            values = action['values']
+            for value in values:
+                capacity += value['numbers'] * value['weight']
+
+        capacity /= (len(data_json) or 1)
+        datetime_dic[month_day_str] = capacity
+
+    response = []
+    start_date_time = datetime.date(year, 1, 1)
+    end_date_time = datetime.date(year, 12, 31)
+    for i in range( (end_date_time - start_date_time).days + 1 ):
+        year_month_day = start_date_time + datetime.timedelta(days=i)
+        month_day_str = datetime.datetime.strftime(year_month_day, r'%m-%d')
+        if month_day_str in datetime_dic:
+            capacity = datetime_dic[month_day_str]
+        else:
+            capacity = 0
+        response.append({
+            'month_day': month_day_str,
+            'capacity': capacity
+        })
+
+    print(response)
+
+    return jsonify(response)
 
 
 
