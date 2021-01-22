@@ -176,7 +176,7 @@ def get_data_of_years():
         data_json = json.loads(mydata.data)
         timestamp = mydata.timestamp
         month_day_str = datetime.datetime.strftime(timestamp, r'%m-%d')
-        capacity = 0
+        year_capacity = 0
 
         if not len(data_json):
             continue    
@@ -184,13 +184,14 @@ def get_data_of_years():
         for action in data_json:
             values = action['values']
             for value in values:
-                capacity += value['numbers'] * value['weight']
+                year_capacity += value['numbers'] * value['weight']
 
-        capacity /= (len(data_json) or 1)
-        datetime_dic[month_day_str] = capacity
+        year_capacity /= (len(data_json) or 1)
+        datetime_dic[month_day_str] = year_capacity
 
     response = []
     start_date_time = datetime.date(year, 1, 1)
+
     if current_year == year:
         end_date_time = datetime.date.today()
     else: 
@@ -200,12 +201,12 @@ def get_data_of_years():
         year_month_day = start_date_time + datetime.timedelta(days=i)
         month_day_str = datetime.datetime.strftime(year_month_day, r'%m-%d')
         if month_day_str in datetime_dic:
-            capacity = datetime_dic[month_day_str]
+            year_capacity = datetime_dic[month_day_str]
         else:
-            capacity = 0
+            year_capacity = 0
         response.append({
             'month_day': month_day_str,
-            'capacity': capacity
+            'year_capacity': year_capacity
         })
 
     print(response)
