@@ -160,7 +160,8 @@ def get_days_have_actions():
 @bp.route('/data-of-years', methods=['GET'])
 @token_auth.login_required
 def get_data_of_years():
-    year = 2021
+    year = 2020
+    current_year = datetime.datetime.now().year
     current_user = g.current_user
     if not current_user:
         return error_response(401)
@@ -190,7 +191,11 @@ def get_data_of_years():
 
     response = []
     start_date_time = datetime.date(year, 1, 1)
-    end_date_time = datetime.date(year, 12, 31)
+    if current_year == year:
+        end_date_time = datetime.date.today()
+    else: 
+        end_date_time = datetime.date(year, 12, 31)
+
     for i in range( (end_date_time - start_date_time).days + 1 ):
         year_month_day = start_date_time + datetime.timedelta(days=i)
         month_day_str = datetime.datetime.strftime(year_month_day, r'%m-%d')
