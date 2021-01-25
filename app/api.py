@@ -104,7 +104,7 @@ def append_action():
     mydata_json = data.get('mydata')
     timestamp = data.get('timestamp')
 
-    mydata_str = json.dumps(mydata_json)
+    mydata_str = json.dumps(mydata_json, ensure_ascii=False)
     user = g.current_user
     user_id = user.id
 
@@ -172,24 +172,44 @@ def get_data_of_years():
     ).all()
 
     datetime_dic = {}
+    name_month_day_dic = {}
+    action_dic = {}
+    
+    # actions all days
     for mydata in mydatas:
         data_json = json.loads(mydata.data)
         timestamp = mydata.timestamp
         month_day_str = datetime.datetime.strftime(timestamp, r'%m-%d')
         year_capacity = 0
+        
 
         if not len(data_json):
             continue    
 
+        # actions one day
         for action in data_json:
-            values = action['values']
+            name = action.get('name')
+            label = action.get('label')
+            values = action.get('values')
+            per_action_capacity = 0
+            name_month_day_str = '{}__{}'.format(name, month_day_str)
             for value in values:
                 year_capacity += value['numbers'] * value['weight']
+                per_action_capacity += value['numbers'] * value['weight']
+            
+            if name_month_day_str in name_month_day_dic:
+                name_month_day_dic[name_month_day_str] += per_action_capacity
+            else:
+                name_month_day_dic[name_month_day_str] = per_action_capacity
+
+            if name not in action_dic:
+                action_dic[name] = label
+
 
         year_capacity /= (len(data_json) or 1)
         datetime_dic[month_day_str] = year_capacity
 
-    response = []
+    
     start_date_time = datetime.date(year, 1, 1)
 
     if current_year == year:
@@ -197,6 +217,8 @@ def get_data_of_years():
     else: 
         end_date_time = datetime.date(year, 12, 31)
 
+    # all data
+    year_datas = []
     for i in range( (end_date_time - start_date_time).days + 1 ):
         year_month_day = start_date_time + datetime.timedelta(days=i)
         month_day_str = datetime.datetime.strftime(year_month_day, r'%m-%d')
@@ -204,12 +226,41 @@ def get_data_of_years():
             year_capacity = datetime_dic[month_day_str]
         else:
             year_capacity = 0
-        response.append({
+        year_datas.append({
             'month_day': month_day_str,
             'year_capacity': year_capacity
         })
+    
+    # action data
+    action_datas = []
+    for key in action_dic.keys():
+        name = key
+        label = action_dic[key]
+        data = []
+        for i in range( (end_date_time - start_date_time).days + 1 ):
+            year_month_day = start_date_time + datetime.timedelta(days=i)
+            month_day_str = datetime.datetime.strftime(year_month_day, r'%m-%d')
+            name_month_day_str = '{}__{}'.format(name, month_day_str)
+            if name_month_day_str in name_month_day_dic:
+                action_capacity = name_month_day_dic[name_month_day_str]
+            else: 
+                action_capacity = 0
 
-    print(response)
+            data.append({
+                'date': month_day_str,
+                'capacity': action_capacity
+            })
+
+        action_datas.append({
+            'name': name,
+            'label': label,
+            'data': data
+        })
+
+    response = {
+        'year_datas': year_datas,
+        'action_datas': action_datas
+    }
 
     return jsonify(response)
 
