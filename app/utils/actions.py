@@ -40,3 +40,9 @@ action_lib_presets = [
         'values': [{ 'weight': 0, 'numbers': 0 }],
     },
 ]
+
+def get_label_by_name(name):
+    for action in action_lib_presets:
+        if name == action.get('name'):
+            return action.get('label')
+    return 'Unknow'

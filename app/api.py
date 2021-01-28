@@ -8,7 +8,7 @@ from app import db
 from app.models import User, MyData
 from app.auth import basic_auth, token_auth
 from app.error import error_response, bad_request
-from app.utils import action_lib_presets
+from app.utils import action_lib_presets, get_label_by_name
 from sqlalchemy import extract
 
 EXPIRES_IN = 28800
@@ -157,10 +157,9 @@ def get_days_have_actions():
     Data
 """
 # get one year's all datas
-@bp.route('/data-of-years', methods=['GET'])
+@bp.route('/data-of-years/<int:year>', methods=['GET'])
 @token_auth.login_required
-def get_data_of_years():
-    year = 2020
+def get_data_of_years(year):
     current_year = datetime.datetime.now().year
     current_user = g.current_user
     if not current_user:
@@ -173,7 +172,7 @@ def get_data_of_years():
 
     datetime_dic = {}
     name_month_day_dic = {}
-    action_dic = {}
+    action_set = set()
     
     # actions all days
     for mydata in mydatas:
@@ -202,14 +201,16 @@ def get_data_of_years():
             else:
                 name_month_day_dic[name_month_day_str] = per_action_capacity
 
-            if name not in action_dic:
-                action_dic[name] = label
-
-
         year_capacity /= (len(data_json) or 1)
         datetime_dic[month_day_str] = year_capacity
 
-    
+    for name_month_day_str in name_month_day_dic.keys():
+        capacity = name_month_day_dic[name_month_day_str]
+        name, month_day = name_month_day_str.split('__')
+        if not capacity:
+            continue
+        action_set.add(name)
+
     start_date_time = datetime.date(year, 1, 1)
 
     if current_year == year:
@@ -227,15 +228,14 @@ def get_data_of_years():
         else:
             year_capacity = 0
         year_datas.append({
-            'month_day': month_day_str,
-            'year_capacity': year_capacity
+            'date': month_day_str,
+            'capacity': year_capacity
         })
     
     # action data
     action_datas = []
-    for key in action_dic.keys():
-        name = key
-        label = action_dic[key]
+    for name in action_set:
+        label = get_label_by_name(name)
         data = []
         for i in range( (end_date_time - start_date_time).days + 1 ):
             year_month_day = start_date_time + datetime.timedelta(days=i)
@@ -262,7 +262,7 @@ def get_data_of_years():
         'action_datas': action_datas
     }
 
-    return jsonify(response)
+    return jsonify('response')
 
 
 
