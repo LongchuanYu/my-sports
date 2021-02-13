@@ -1,3 +1,4 @@
+# coding: utf-8
 import json, time, datetime
 import jwt
 from flask import Blueprint, g
@@ -7,7 +8,7 @@ from app import db
 from app.models import User, MyData
 from app.auth import basic_auth, token_auth
 from app.error import error_response, bad_request
-from app.utils import action_lib_presets
+from app.utils import action_lib_presets, get_label_by_name
 from sqlalchemy import extract
 
 EXPIRES_IN = 28800
@@ -22,6 +23,11 @@ def hello_world():
 @bp.route('/test', methods=['GET'])
 def test():
     return 'test'
+
+
+"""
+    Users
+"""
 
 # get user
 @bp.route('/users/<int:id>', methods=['GET'])
@@ -54,6 +60,11 @@ def create_user():
 
     return 'create success', 201
 
+
+"""
+    Training
+"""
+
 # get actions
 @bp.route('/actions', methods=['GET'])
 @token_auth.login_required
@@ -64,13 +75,26 @@ def get_action():
         return bad_request('args error.')
     if not user:
         return bad_request('Unauth...')
-    
+
+    action_lib_presets_dic = {}
+    for action in action_lib_presets:
+        name = action['name']
+        label = action['label']
+        action_lib_presets_dic[name] = label
+
     date_time_formatted = datetime.datetime.strptime(date_time, r'%Y-%m-%d')
     mydata = user.mydata.filter_by(timestamp=date_time_formatted).first_or_404()
+    mydata_json = json.loads(mydata.data)
+    for data in mydata_json:
+        name = data.get('name')
+        if name in action_lib_presets_dic:
+            data['label'] = action_lib_presets_dic[name]
+
     message = {
-        "mydata": json.loads(mydata.data)
+        "mydata": mydata_json
     }
     return message
+
 
 # append action cards
 @bp.route('/actions', methods=['POST'])
@@ -80,7 +104,7 @@ def append_action():
     mydata_json = data.get('mydata')
     timestamp = data.get('timestamp')
 
-    mydata_str = json.dumps(mydata_json)
+    mydata_str = json.dumps(mydata_json, ensure_ascii=False)
     user = g.current_user
     user_id = user.id
 
@@ -106,7 +130,7 @@ def append_action():
 def get_actions_lib():
     return jsonify(action_lib_presets)
 
-# get current month include actions
+# get current month include actions (for calendar)
 @bp.route('/days-have-actions', methods=['GET'])
 @token_auth.login_required
 def get_days_have_actions():
@@ -128,6 +152,118 @@ def get_days_have_actions():
             response.append(day)
     # response = list(set([item.timestamp.day for item in data if item.data and len(item.data)]))
     return jsonify(response)
+
+"""
+    Data
+"""
+# get one year's all datas
+@bp.route('/data-of-years/<int:year>', methods=['GET'])
+@token_auth.login_required
+def get_data_of_years(year):
+    current_year = datetime.datetime.now().year
+    current_user = g.current_user
+    if not current_user:
+        return error_response(401)
+
+    mydatas = MyData.query.filter(
+        MyData.user == current_user,
+        extract('year', MyData.timestamp) == int(year)
+    ).all()
+
+    datetime_dic = {}
+    name_month_day_dic = {}
+    action_set = set()
+    
+    # actions all days
+    for mydata in mydatas:
+        data_json = json.loads(mydata.data)
+        timestamp = mydata.timestamp
+        month_day_str = datetime.datetime.strftime(timestamp, r'%m-%d')
+        year_capacity = 0
+
+        if not len(data_json):
+            continue    
+
+        # actions one day
+        for action in data_json:
+            name = action.get('name')
+            label = action.get('label')
+            values = action.get('values')
+            per_action_capacity = 0
+            name_month_day_str = '{}__{}'.format(name, month_day_str)
+            for value in values:
+                year_capacity += value['numbers'] * value['weight']
+                per_action_capacity += value['numbers'] * value['weight']
+            
+            if name_month_day_str in name_month_day_dic:
+                name_month_day_dic[name_month_day_str] += per_action_capacity
+            else:
+                name_month_day_dic[name_month_day_str] = per_action_capacity
+
+        year_capacity /= (len(data_json) or 1)
+        datetime_dic[month_day_str] = year_capacity
+
+    for name_month_day_str in name_month_day_dic.keys():
+        capacity = name_month_day_dic[name_month_day_str]
+        name, month_day = name_month_day_str.split('__')
+        if not capacity:
+            continue
+        action_set.add(name)
+
+    start_date_time = datetime.date(year, 1, 1)
+
+    if current_year == year:
+        end_date_time = datetime.date.today()
+    else: 
+        end_date_time = datetime.date(year, 12, 31)
+
+    # all data
+    year_datas = []
+    for i in range( (end_date_time - start_date_time).days + 1 ):
+        year_month_day = start_date_time + datetime.timedelta(days=i)
+        month_day_str = datetime.datetime.strftime(year_month_day, r'%m-%d')
+        if month_day_str in datetime_dic:
+            year_capacity = datetime_dic[month_day_str]
+        else:
+            year_capacity = 0
+        year_datas.append({
+            'date': month_day_str,
+            'capacity': year_capacity
+        })
+    
+    # action data
+    action_datas = []
+    for name in action_set:
+        label = get_label_by_name(name)
+        data = []
+        for i in range( (end_date_time - start_date_time).days + 1 ):
+            year_month_day = start_date_time + datetime.timedelta(days=i)
+            month_day_str = datetime.datetime.strftime(year_month_day, r'%m-%d')
+            name_month_day_str = '{}__{}'.format(name, month_day_str)
+            if name_month_day_str in name_month_day_dic:
+                action_capacity = name_month_day_dic[name_month_day_str]
+            else: 
+                action_capacity = 0
+
+            data.append({
+                'date': month_day_str,
+                'capacity': action_capacity
+            })
+
+        action_datas.append({
+            'name': name,
+            'label': label,
+            'data': data
+        })
+
+    response = {
+        'year_datas': year_datas,
+        'action_datas': action_datas
+    }
+
+    return jsonify(response)
+
+
 
 # Auth
 @bp.route('/auth', methods=['POST'])
