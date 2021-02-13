@@ -180,7 +180,6 @@ def get_data_of_years(year):
         timestamp = mydata.timestamp
         month_day_str = datetime.datetime.strftime(timestamp, r'%m-%d')
         year_capacity = 0
-        
 
         if not len(data_json):
             continue    
@@ -262,7 +261,7 @@ def get_data_of_years(year):
         'action_datas': action_datas
     }
 
-    return jsonify('response')
+    return jsonify(response)
 
 
 
